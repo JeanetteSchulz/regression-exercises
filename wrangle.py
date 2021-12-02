@@ -48,11 +48,19 @@ def get_zillow_data():
 ########################################### Clean Zillow Dataframe ###########################################
 
 def wrangle_zillow (zillow):
-    # Drop all data with nulls. This about 1.06% of the data, so shouldn't affect outcome
+    '''
+    This function takes in the zillow dataframe and cleans it by dropping all Null values. It then
+    converts the yearbuilt, fips, and bedroomcnt columns from Floats to Integers.
+    '''
+
+    # Drop all data with nulls and zeros. This about 1.06% of the data, so shouldn't affect modeling
     zillow = zillow.dropna()
+    zillow = zillow[(zillow.bathroomcnt != 0) | (zillow.bedroomcnt != 0)]
+
     
     # Change the data types of these columns to int
     zillow["yearbuilt"] = zillow.yearbuilt.astype(int)
     zillow["fips"] = zillow.fips.astype(int)
+    zillow["bedroomcnt"] = zillow.bedroomcnt.astype(int)
     
     return zillow

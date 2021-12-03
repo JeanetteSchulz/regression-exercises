@@ -1,5 +1,8 @@
 from env import host, user, password
 import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 
 ########################################### mySQL Connection ###########################################
 
@@ -10,7 +13,7 @@ def get_connection(database_name):
     '''
     return f'mysql+pymysql://{user}:{password}@{host}/{database_name}'
 
-########################################### Obtain Zillow Dataframe ###########################################
+########################################### Acquire Zillow Dataframe ###########################################
 
 def get_zillow_data():
     '''
@@ -39,28 +42,63 @@ def get_zillow_data():
                               WHERE propertylandusetypeid = 261;""", 
                             get_connection('zillow')
                         )
-        
         # Cache data into a csv backup
         df.to_csv('zillow2017.csv')
+    
+    # Renaming column names to one's I like better
+    df = df.rename(columns = {'bedroomcnt':'bedrooms', 
+                          'bathroomcnt':'bathrooms', 
+                          'calculatedfinishedsquarefeet':'area',
+                          'taxvaluedollarcnt':'tax_value', 
+                          'yearbuilt':'year_built'})   
+    return df
+########################################### Clean Zillow Dataframe ###########################################
+
+def remove_outliers(df, k, col_list):
+    ''' remove outliers from a list of columns in a dataframe 
+        and return that dataframe
+    '''
+    
+    for col in col_list:
+
+        q1, q3 = df[col].quantile([.25, .75])  # get quartiles
+        
+        iqr = q3 - q1   # calculate interquartile range
+        
+        upper_bound = q3 + k * iqr   # get upper bound
+        lower_bound = q1 - k * iqr   # get lower bound
+
+        # return dataframe without outliers
+        
+        df = df[(df[col] > lower_bound) & (df[col] < upper_bound)]
         
     return df
 
-########################################### Clean Zillow Dataframe ###########################################
 
-def wrangle_zillow (zillow):
-    '''
-    This function takes in the zillow dataframe and cleans it by dropping all Null values. It then
-    converts the yearbuilt, fips, and bedroomcnt columns from Floats to Integers.
-    '''
-
+def prepare_zillow (zillow):
+    # Remove extreme outliers (there will still be a few, but our data should be less skewed)
+    zillow = remove_outliers(zillow, 1.5, ['bedrooms', 'bathrooms', 'area', 'tax_value', 'taxamount'])
+    
     # Drop all data with nulls and zeros. This about 1.06% of the data, so shouldn't affect modeling
     zillow = zillow.dropna()
-    zillow = zillow[(zillow.bathroomcnt != 0) | (zillow.bedroomcnt != 0)]
-
+    zillow = zillow[(zillow.bathrooms != 0) | (zillow.bedrooms != 0)]
     
     # Change the data types of these columns to int
-    zillow["yearbuilt"] = zillow.yearbuilt.astype(int)
+    zillow["year_built"] = zillow.year_built.astype(int)
     zillow["fips"] = zillow.fips.astype(int)
-    zillow["bedroomcnt"] = zillow.bedroomcnt.astype(int)
+    zillow["bedrooms"] = zillow.bedrooms.astype(int)
     
     return zillow
+
+########################################### Wrangle Zillow Dataframe ###########################################
+
+def wrangle_zillow():
+    '''Acquire and prepare data from Zillow database for explore'''
+    # Acquire and Prep
+    zillow = prepare_zillow(get_zillow_data())
+    
+    # Split
+    train_validate, test = train_test_split(zillow, test_size=.2, random_state= 42)
+    train, validate = train_test_split(train_validate, test_size=.3, random_state= 42)
+    
+    return train, validate, test

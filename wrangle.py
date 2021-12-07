@@ -1,6 +1,7 @@
 from env import host, user, password
 import os
 import pandas as pd
+import sklearn.preprocessing
 from sklearn.model_selection import train_test_split
 
 
@@ -100,5 +101,25 @@ def wrangle_zillow():
     # Split
     train_validate, test = train_test_split(zillow, test_size=.2, random_state= 42)
     train, validate = train_test_split(train_validate, test_size=.3, random_state= 42)
+    
+    return train, validate, test
+
+########################################### Scale Zillow Dataframe ###########################################
+
+def Min_Max_Scaler(train, validate, test):
+    """
+    Takes in the pre-split data and uses train to fit the scaler. The scaler is then applied to all dataframes and 
+    the dataframes are returned in thier scaled form.
+    """
+    # 1. Create the object
+    scaler = sklearn.preprocessing.MinMaxScaler()
+
+    # 2. Fit the object (learn the min and max value)
+    scaler.fit(train[['taxamount', 'tax_value']])
+
+    # 3. Use the object (use the min, max to do the transformation)
+    train[['taxamount', 'tax_value']] = scaler.transform(train[['taxamount', 'tax_value']])
+    test[['taxamount', 'tax_value']] = scaler.transform(test[['taxamount', 'tax_value']])
+    validate[['taxamount', 'tax_value']] = scaler.transform(validate[['taxamount', 'tax_value']])
     
     return train, validate, test
